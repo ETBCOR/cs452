@@ -1,6 +1,3 @@
-#include <Arduino.h>
-
-
 // ---- BUTTON TEST ---- //
 void button_test();
 
