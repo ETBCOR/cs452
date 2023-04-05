@@ -1,0 +1,15 @@
+{
+    "files.associations": {
+        "types.h": "c",
+        "task.h": "c",
+        "stdlib.h": "c",
+        "stdio.h": "c",
+        "main.h": "c",
+        "binary_info.h": "c",
+        "i2c.h": "c",
+        "sem.h": "c",
+        "semphr.h": "c",
+        "picoled.hpp": "c"
+    },
+    "C_Cpp.errorSquiggles": "enabled"
+}

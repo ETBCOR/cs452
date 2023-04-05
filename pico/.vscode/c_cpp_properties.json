@@ -1,0 +1,25 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/FreeRTOS-Kernel/portable/GCC/ATMega323",
+                "${workspaceFolder}/FreeRTOS-Kernel/include/"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "gnu11",
+            "cppStandard": "gnu++17",
+            "intelliSenseMode": "linux-gcc-x64",
+            "configurationProvider": "ms-vscode.cpptools-tools",
+            "forcedInclude": [
+                "${workspaceFolder}/FreeRTOS-Kernel/include/FreeRTOS.h",
+                "${workspaceFolder}/FreeRTOS-Kernel/include/task.h",
+                "${workspaceFolder}/FreeRTOS-Kernel/include/queue.h",
+                "${workspaceFolder}/FreeRTOS-Kernel/include/semphr.h"
+            ]
+        }
+    ],
+    "version": 4
+}

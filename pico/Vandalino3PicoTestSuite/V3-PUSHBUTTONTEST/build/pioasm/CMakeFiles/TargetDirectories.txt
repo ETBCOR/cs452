@@ -1,0 +1,3 @@
+/home/etbcor/pico/Vandalino3PicoTestSuite/V3-PUSHBUTTONTEST/build/pioasm/CMakeFiles/pioasm.dir
+/home/etbcor/pico/Vandalino3PicoTestSuite/V3-PUSHBUTTONTEST/build/pioasm/CMakeFiles/edit_cache.dir
+/home/etbcor/pico/Vandalino3PicoTestSuite/V3-PUSHBUTTONTEST/build/pioasm/CMakeFiles/rebuild_cache.dir

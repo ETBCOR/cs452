@@ -1,0 +1,3 @@
+/home/etbcor/pico/assign04-corg7983/build/pioasm/CMakeFiles/pioasm.dir
+/home/etbcor/pico/assign04-corg7983/build/pioasm/CMakeFiles/edit_cache.dir
+/home/etbcor/pico/assign04-corg7983/build/pioasm/CMakeFiles/rebuild_cache.dir

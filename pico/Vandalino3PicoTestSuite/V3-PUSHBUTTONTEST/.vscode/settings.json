@@ -1,0 +1,7 @@
+{
+    "cmake.environment": {
+        "PICO_SDK_PATH": "/home/ros2box/pico/pico-sdk"
+    },
+    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+    "cmake.configureOnOpen": true
+}

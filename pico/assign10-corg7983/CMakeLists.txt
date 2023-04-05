@@ -1,0 +1,46 @@
+cmake_minimum_required(VERSION 3.12)
+set(PICO_BOARD adafruit_feather_rp2040)
+set(PICO_SDK_PATH /home/etbcor/pico/pico-sdk)
+set(PICO_SDK_FREERTOS_SOURCE /home/etbcor/pico/FreeRTOS-Kernel)
+include(pico_sdk_import.cmake)
+
+project(assign10-corg7983)
+
+pico_sdk_init()
+
+enable_language( C CXX ASM )
+
+add_library(freertos
+    ${PICO_SDK_FREERTOS_SOURCE}/event_groups.c
+    ${PICO_SDK_FREERTOS_SOURCE}/list.c
+    ${PICO_SDK_FREERTOS_SOURCE}/queue.c
+    ${PICO_SDK_FREERTOS_SOURCE}/stream_buffer.c
+    ${PICO_SDK_FREERTOS_SOURCE}/tasks.c
+    ${PICO_SDK_FREERTOS_SOURCE}/timers.c
+    ${PICO_SDK_FREERTOS_SOURCE}/portable/MemMang/heap_3.c
+    ${PICO_SDK_FREERTOS_SOURCE}/portable/GCC/ARM_CM0/port.c
+)
+
+target_include_directories(freertos PUBLIC
+    .
+    ${PICO_SDK_FREERTOS_SOURCE}/include
+    ${PICO_SDK_FREERTOS_SOURCE}/portable/GCC/ARM_CM0
+)
+
+
+add_executable(assign10-corg7983
+        main.c
+)
+
+pico_enable_stdio_usb(assign10-corg7983 1)
+pico_enable_stdio_uart(assign10-corg7983 1)
+pico_add_extra_outputs(assign10-corg7983)
+
+target_link_libraries(assign10-corg7983
+    pico_stdlib
+    freertos
+    hardware_gpio
+    hardware_i2c
+    hardware_adc
+)
+

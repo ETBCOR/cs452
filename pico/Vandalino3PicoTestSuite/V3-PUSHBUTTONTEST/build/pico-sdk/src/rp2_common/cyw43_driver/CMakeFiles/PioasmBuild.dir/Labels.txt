@@ -1,0 +1,13 @@
+# Target labels
+ PioasmBuild
+# Source files and their labels
+/home/etbcor/pico/Vandalino3PicoTestSuite/V3-PUSHBUTTONTEST/build/pico-sdk/src/rp2_common/cyw43_driver/CMakeFiles/PioasmBuild
+/home/etbcor/pico/Vandalino3PicoTestSuite/V3-PUSHBUTTONTEST/build/pico-sdk/src/rp2_common/cyw43_driver/CMakeFiles/PioasmBuild.rule
+/home/etbcor/pico/Vandalino3PicoTestSuite/V3-PUSHBUTTONTEST/build/pico-sdk/src/rp2_common/cyw43_driver/CMakeFiles/PioasmBuild-complete.rule
+/home/etbcor/pico/Vandalino3PicoTestSuite/V3-PUSHBUTTONTEST/build/pico-sdk/src/rp2_common/cyw43_driver/pioasm/src/PioasmBuild-stamp/PioasmBuild-build.rule
+/home/etbcor/pico/Vandalino3PicoTestSuite/V3-PUSHBUTTONTEST/build/pico-sdk/src/rp2_common/cyw43_driver/pioasm/src/PioasmBuild-stamp/PioasmBuild-configure.rule
+/home/etbcor/pico/Vandalino3PicoTestSuite/V3-PUSHBUTTONTEST/build/pico-sdk/src/rp2_common/cyw43_driver/pioasm/src/PioasmBuild-stamp/PioasmBuild-download.rule
+/home/etbcor/pico/Vandalino3PicoTestSuite/V3-PUSHBUTTONTEST/build/pico-sdk/src/rp2_common/cyw43_driver/pioasm/src/PioasmBuild-stamp/PioasmBuild-install.rule
+/home/etbcor/pico/Vandalino3PicoTestSuite/V3-PUSHBUTTONTEST/build/pico-sdk/src/rp2_common/cyw43_driver/pioasm/src/PioasmBuild-stamp/PioasmBuild-mkdir.rule
+/home/etbcor/pico/Vandalino3PicoTestSuite/V3-PUSHBUTTONTEST/build/pico-sdk/src/rp2_common/cyw43_driver/pioasm/src/PioasmBuild-stamp/PioasmBuild-patch.rule
+/home/etbcor/pico/Vandalino3PicoTestSuite/V3-PUSHBUTTONTEST/build/pico-sdk/src/rp2_common/cyw43_driver/pioasm/src/PioasmBuild-stamp/PioasmBuild-update.rule

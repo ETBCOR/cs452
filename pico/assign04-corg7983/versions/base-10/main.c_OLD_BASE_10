@@ -1,0 +1,226 @@
+/* * * * * * * * * * * * * * * * * * * * * * * * * * *\
+ * Class:       CS452 (Real-Time Operating Systems)  *
+ * Instructor:  John Shovic                          *
+ * Student:     Ethan Corgatelli (corg7983)          *
+ * Project:     Assignment 4                         *
+ * File:        main.c                               *
+ *                                                   *
+\* * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+// Include this file's header
+#include "main.h"
+
+
+//---------------- DEFINITIONS ----------------//
+
+// Define the number of pins in use
+#define NUM_PINS 11
+
+// Define pin names
+#define SevenSegCC1 11  // Right digit
+#define SevenSegCC2 10  // Left digit
+#define SevenSegA 26    // N  seg
+#define SevenSegB 27    // NE seg
+#define SevenSegC 29    // SE seg
+#define SevenSegD 18    // S  seg
+#define SevenSegE 25    // SW seg
+#define SevenSegF 7     // NW seg
+#define SevenSegG 28    // Middle seg
+#define SevenSegDP 24   // Decimal points
+const uint LED_PIN = PICO_DEFAULT_LED_PIN;
+
+// Keeps an array of the pins for easy initializations
+const int PINS[NUM_PINS] = {
+    SevenSegCC1, SevenSegCC2,
+    SevenSegA, SevenSegB, SevenSegC, SevenSegD, SevenSegE, SevenSegF, SevenSegG,
+    SevenSegDP,
+    LED_PIN
+};
+
+
+
+//---------------- PROTOTYPES / HANDLES ----------------//
+
+// Utility function prototypes
+static void gpio_init_pins();
+static void putDigit(int, bool);
+static void put7Pins(int, int, int, int, int, int, int);
+
+// Task prototypes
+static void vCounterTsk();
+static void vBlinkerTsk();
+static void vSevSegTsk();
+
+// Task/queue handles
+static TaskHandle_t xCounterTsk = NULL;
+static TaskHandle_t xBlinkerTsk = NULL;
+static TaskHandle_t xSevSegTsk  = NULL;
+static QueueHandle_t xQueue     = NULL;
+
+
+//---------------- MAIN ----------------//
+int main()
+{
+    // Initialization
+    stdio_init_all();
+    gpio_init_pins();
+
+    // Create a queue of size 1 to communicate the counter value
+    xQueue = xQueueCreate(1, sizeof(int));
+    if (xQueue == NULL) exit(1); // Exits if queue creation fails
+
+    // Create the tasks
+    xTaskCreate(vCounterTsk, "Counter_Task", 256, NULL, 3, &xCounterTsk);
+    xTaskCreate(vBlinkerTsk, "Blinker_Task", 256, NULL, 1, &xBlinkerTsk);
+    xTaskCreate(vSevSegTsk,  "Sev_Seg_Task", 256, NULL, 2, &xSevSegTsk );
+
+    // start the task scheduler
+    vTaskStartScheduler();
+
+    while(1){};
+}
+
+
+//---------------- UTILITY FUNCTIONS ----------------//
+
+// Utility function to init all the needed pins
+static void gpio_init_pins()
+{
+    for (int i = 0; i < NUM_PINS; i++) {
+        gpio_init(PINS[i]);
+        gpio_set_dir(PINS[i], GPIO_OUT);
+    }
+}
+
+// Puts a digit onto one of the two 7-seg displays
+static void putDigit(int digit, bool tensPlace)
+{
+    // Are we drawing to the ones place or tens place?
+    if (tensPlace) {
+
+        // Drawing to tens place
+        gpio_put(SevenSegCC1, 0);
+        gpio_put(SevenSegCC2, 1); // <-- tens place
+
+        // If we're about to write a 0 to the 10s place,
+        // instaed just clear the digit and return.
+        if (digit == 0) {
+            put7Pins(0, 0, 0, 0, 0, 0, 0);
+            return;
+        }
+    } else {
+
+        //Drawing to ones place
+        gpio_put(SevenSegCC1, 1); // <-- ones place
+        gpio_put(SevenSegCC2, 0);
+    }
+
+    // Draw the digit (the passed arg mod 10)
+    switch (digit % 10) {
+        case 0: put7Pins(1, 1, 1, 1, 1, 1, 0); break;
+        case 1: put7Pins(0, 1, 1, 0, 0, 0, 0); break;
+        case 2: put7Pins(1, 1, 0, 1, 1, 0, 1); break;
+        case 3: put7Pins(1, 1, 1, 1, 0, 0, 1); break;
+        case 4: put7Pins(0, 1, 1, 0, 0, 1, 1); break;
+        case 5: put7Pins(1, 0, 1, 1, 0, 1, 1); break;
+        case 6: put7Pins(1, 0, 1, 1, 1, 1, 1); break;
+        case 7: put7Pins(1, 1, 1, 0, 0, 0, 0); break;
+        case 8: put7Pins(1, 1, 1, 1, 1, 1, 1); break;
+        case 9: put7Pins(1, 1, 1, 1, 0, 1, 1); break;
+        default: put7Pins(0, 0, 0, 0, 0, 0, 0); // Blanks the screen by default
+    }
+}
+
+// This is a subroutine used in the switch-case statement
+// in putDigit (above), to reduce code duplication.
+static void put7Pins(int A, int B, int C, int D, int E, int F, int G)
+{
+    gpio_put(SevenSegA, A);
+    gpio_put(SevenSegB, B);
+    gpio_put(SevenSegC, C);
+    gpio_put(SevenSegD, D);
+    gpio_put(SevenSegE, E);
+    gpio_put(SevenSegF, F);
+    gpio_put(SevenSegG, G);
+}
+
+//---------------- TASKS ----------------//
+
+// This task counts (every half second) from 42 to 0 to 42, in a loop,
+// updating the queue with the new value, and notifying the blink task
+// each time the value changes.
+static void vCounterTsk()
+{
+    int counter = 42;
+    int jump = -1;
+
+    while (true) {
+
+        // notify the blink task to unblock
+        xTaskNotifyGive(xBlinkerTsk);
+
+        // override the queue's value with the new counter value
+        xQueueOverwrite(xQueue, &counter);
+
+        // log the counter value for debugging
+        printf(
+            "[%s] @ %i: %s %i\n",
+            "Counter_Task",
+            xTaskGetTickCount(),
+            "Counter value is:",
+            counter
+        );
+        
+        // Delay the task for 500ms
+        vTaskDelay(500 / portTICK_PERIOD_MS);
+
+        // increment the counter
+        counter += jump;
+
+        // reverse the jump direction if we're at an extreme
+        if (counter == 0 || counter == 42)
+            jump *= -1;
+    }
+}
+
+// This task waits for a notification and blinks the LED on for 3 ticks.
+static void vBlinkerTsk()
+{
+    while (true) {
+
+        // block until notified to blink (by vCountTsk)
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
+        // flash the LED on for 3 ticks
+        gpio_put(LED_PIN, 1);
+        vTaskDelay(3);
+        gpio_put(LED_PIN, 0);
+    }
+}
+
+// This task displays the appropriate digits on
+// the 7-seg display based on the value in the queue.
+static void vSevSegTsk()
+{
+    int val = 0;
+
+    // delay for a tick so that the queue will
+    // have a value when we first peek it.
+    vTaskDelay(1);
+
+    while (true) {
+        
+        // peek the queue to update val
+        xQueuePeek(xQueue, &val, 0);
+
+        // put the 10s digit
+        putDigit((val - (val % 10))/10, true);
+        // delay this task so that 10s place is visible
+        vTaskDelay(1);
+
+        // put the 1s digit
+        putDigit(val % 10, false);
+        // delay this task so that 1s place is visible
+        vTaskDelay(1);
+    }
+}
