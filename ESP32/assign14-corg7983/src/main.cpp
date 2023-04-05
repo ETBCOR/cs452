@@ -37,10 +37,23 @@ const char* NET_PASS = "localpass";
 const int PINS[NUM_PINS] = {DIP0, DIP1, DIP2, DIP3, DIP4, DIP5, DIP6, DIP7};
 
 const char index_html[] PROGMEM = R"rawliteral(
-  <!DOCTYPE HTML>
-  <head></head>
-  <body></body>
+
+<!DOCTYPE HTML>
+<html>
+  <head>
+    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
+    <link rel=\"icon\" href=\"data:,\">
+    <title>ESP32 Web Server Dipswitch Display</title>
+  </head>
+  <body>
+    <h1>ESP32 Web Server Dipswitch Display</h1>
+    <p>Dipswitch states:</p>
+    <p>%i%i%i%i%i%i%i%i</p>
+  </body>
+</html>
+
 )rawliteral";
+
 
 //---------------- PROTOTYPES ----------------//
 
@@ -129,30 +142,20 @@ void vWebServerTsk(void* parm) {
             if (currLine.length() == 0) {
               // The request has ended, so send a response
               client.println("HTTP/1.1 200 OK\nContent-type:text/html\nConnection: close\n");
-
-              // Display the web page
-              client.println("<!DOCTYPE html><html>");
-
-              client.println("<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
-              client.println("<link rel=\"icon\" href=\"data:,\">");
-              client.println("<title>ESP32 Web Server Dipswitch Display</title></head");
-
-              client.println("<body><h1>ESP32 Web Server Dipswitch Display</h1>");
-              client.println("<p>lorem ipsum frick u</p>");
-              client.println("</body></html>\n");
+              char index_text[1024];
+              snprintf(index_text, sizeof(index_text), index_html, digitalRead(DIP0), digitalRead(DIP1), digitalRead(DIP2), digitalRead(DIP3), digitalRead(DIP4), digitalRead(DIP5), digitalRead(DIP6), digitalRead(DIP7));
+              client.println(index_text);
               break; // break the while-client-connected loop
-            } // if request has ended (send a response)
-            else {
+            } else {
               // The request hasn't ended, but the line has - so clear the line buffer
               currLine = "";
             }
-          } // if read character is newline character
-          else if (c != '\r') {
+          } else if (c != '\r') {
             // Any character other than the carridge return gets added to the line buffer
             currLine += c;
           }
-        } // if client available
-      } // while client connected
+        }
+      }
 
       // Clear the header var
       header = "";
@@ -176,4 +179,4 @@ void init_pins() {
 
 //---------------- LOOP ----------------//
 
-void loop() {}
+void loop() { }
