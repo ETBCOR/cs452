@@ -26,16 +26,7 @@ const char* SERVER_IP = "http://52.23.160.25:5000";
 
 //---------------- PROTOTYPES ----------------//
 
-
-
-
-//---------------- SETUP ----------------//
-
-void setup() {
-
-  // Initialization
-  Serial.begin(115200);
-
+void connect() {
   // Connect to the WiFi network
   Serial.print("Attempting connection to '");
   Serial.print(NET_SSID);
@@ -52,10 +43,27 @@ void setup() {
   Serial.println(NET_SSID);
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
+}
 
-  HTTPClient client;
 
-  String path = SERVER_IP + ""
+//---------------- SETUP ----------------//
+
+void setup() {
+
+  // Initialization
+  Serial.begin(115200);
+
+  // Connect to WiFi
+  connect();
+
+  WiFiClient client;
+  HTTPClient http;
+
+  http.begin(client, SERVER_IP);
+  http.addHeader("Content-Type", "application/json");
+
+  int httpResponseCode = http.POST("{\"key\":\"2436e8c114aa64ee\"}");
+
 }
 
 void loop() {}
