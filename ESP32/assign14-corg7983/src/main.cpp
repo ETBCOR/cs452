@@ -12,7 +12,7 @@
 
 #include <Arduino.h>
 #include <freertos/FreeRTOS.h>
-#include <Wifi.h>
+#include <WiFi.h>
 
 
 //---------------- DEFINITIONS ----------------//
@@ -61,6 +61,7 @@ const char index_html[] PROGMEM = R"rawliteral(
 void init_pins();
 
 void vWebServerTsk(void* parm);
+
 
 //---------------- SETUP ----------------//
 
@@ -179,4 +180,4 @@ void init_pins() {
 
 //---------------- LOOP ----------------//
 
-void loop() { }
+void loop() {}
