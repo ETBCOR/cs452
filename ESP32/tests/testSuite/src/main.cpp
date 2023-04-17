@@ -15,7 +15,7 @@ void button_test() {
   pinMode(BUTTONS3, INPUT);
 
   Serial.begin(115200);
-  Serial.println("\nV3-DIP8Test");
+  Serial.println("\nV3-BUTTONTest");
 
   while (1) {
     Serial.print(digitalRead(BUTTONS1));
