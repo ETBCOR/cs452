@@ -20,6 +20,11 @@ void setup()
   connectHDC();
   connectSI();
   connectWiFi();
+  configTime(0, 0, NTP_SERVER);
+  String curTime = getTime();
+  Serial.print("Initialization complete. Current time: ");
+  Serial.println(curTime);
+  Serial.println();
 
   // Create queues
   qIOTcmd  = xQueueCreate(32,sizeof(IOTCmd) );
@@ -107,7 +112,7 @@ void connectWiFi()
   }
   Serial.print("\nConnected (IP: ");
   Serial.print(WiFi.localIP());
-  Serial.println(")\n");
+  Serial.println(")");
 }
 
 String cmdToPath(IOTCmd cmd)
@@ -122,6 +127,15 @@ String cmdToPath(IOTCmd cmd)
   }
 }
 
+String getTime()
+{
+  struct tm ti;
+  if (getLocalTime(&ti)) {
+    char buf[20];
+    strftime(buf, 20, "%F %T", &ti);
+    return String(buf);
+  } else return "";
+}
 
 //---------------- ISRs ----------------//
 
@@ -204,8 +218,7 @@ void tIOT(void *)
 {
   WiFiClient client;
   HTTPClient http;
-  String address, reqData, response;
-  String authCode;
+  String authCode, address, reqData, response, curTime;
   IOTCmd cmd;
   int Cfreq, Sfreq;
   JSONVar json;
@@ -225,7 +238,11 @@ void tIOT(void *)
 
     // Print the command that was recieved
     Serial.print("[IOT Task]: Command recieved: ");
-    Serial.println(cmdToPath(cmd));
+    Serial.print(cmdToPath(cmd));
+    Serial.print(" <");
+    for (int i = 0; i < 50; i++)
+      Serial.print("-");
+    Serial.println("<");
 
     // Start the HTTPClient
     address = SERVER_IP + cmdToPath(cmd);
@@ -238,8 +255,8 @@ void tIOT(void *)
       case REGISTER:    reqData = "{\"key\":\""       + SECRET_KEY + "\",\"iotid\":\"" + IOTID + "\"}"; break;
       case QUERY:       reqData = "{\"auth_code\":\"" + authCode   + "\",\"iotid\":\"" + IOTID + "\"}"; break;
       case IOTDATA: {
-        Serial.println("[IOT Task]: Requesting reading from HDC1080");
         // Notify HDC1080 task to take a reading and wait on it
+        Serial.println("[IOT Task]: Requesting reading from HDC1080");
         xTaskNotifyGive(thHDC);
         xQueueReceive(qHDCdata, &hdcData, portMAX_DELAY);
         temp = hdcData.temp;
@@ -250,18 +267,25 @@ void tIOT(void *)
         Serial.print(humid);
         Serial.println(")");
 
-        // Wait for the SI's data, then set reqData
-        Serial.println("[IOT Task]: Requesting reading from SI1145");
-        xTaskNotifyGive(thSI);  // notify SI1145 task to take a reading
+        // Notify SI1145 task to take a reading and wait on it
+        /* Serial.println("[IOT Task]: Requesting reading from SI1145");
+        xTaskNotifyGive(thSI);
         xQueueReceive(qSIdata, &light, portMAX_DELAY);
         Serial.print("[IOT Task]: SI reading recieved (light: ");
         Serial.print(light);
-        Serial.println(")");
+        Serial.println(")"); */
+
+        // Get time data
+        Serial.println("[IOT Task]: Storing current time");
+        curTime = getTime();
+
+        // Set reqData
         reqData = "{\"auth_code\":\"" + authCode 
                 + "\",\"temperature\":" + temp
-                + ",\"humidity\":" + humid + "}";
+                + ",\"humidity\":" + humid
                 // + ",\"light\":" + light
-                //+ ",\"latitude\":0.0,\"longitude\":0.0,\"altitude\":0.0,\"time\":\"2023-04-01 00:00:01\"}";
+                //+ ",\"latitude\":0.0,\"longitude\":0.0,\"altitude\":0.0
+                + (!curTime.length() ? "}" : ",\"time\":\"" + curTime + "\"}");
         break;
       }
       case IOTSHUTDOWN: reqData = "{\"auth_code\":\"" + authCode + "\"}";                               break;

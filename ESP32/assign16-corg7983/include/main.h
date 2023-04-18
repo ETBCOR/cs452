@@ -10,16 +10,18 @@
 
 //---------------- CONSTANTS ----------------//
 
-const char*  NET_SSID   = "FridaysNetwork2G";
-const char*  NET_PASS   = "localpass";
+const char * NET_SSID   = "FridaysNetwork2G";
+const char * NET_PASS   = "localpass";
 const String SERVER_IP  = "http://52.23.160.25:5000/IOTAPI/";
 const String SECRET_KEY = "2436e8c114aa64ee";
 const String IOTID      = "1003";
+const char * NTP_SERVER = "pool.ntp.org";
 
 
 //---------------- DEFINITIONS ----------------//
 
 #define DEFAULT_CHECK_SEND_FREQ 300
+#define MIN_CHECK_SEND_FREQ 10
 
 // Buttons
 #define BUTTONS1 19 // GP19
@@ -49,6 +51,7 @@ void connectHDC();
 void connectSI();
 void connectWiFi();
 String cmdToPath(IOTCmd);
+String getTime();
 
 // ISRs
 void IRAM_ATTR isr1();
@@ -65,7 +68,6 @@ void tHDC(void *);
 void tSI(void *);
 void tStepper(void *);
 void tLED(void *);
-
 
 
 //---------------- GLOBAL HANDLES ----------------//
