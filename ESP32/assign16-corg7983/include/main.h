@@ -6,6 +6,7 @@
 #include "ClosedCube_HDC1080.h"
 #include "Adafruit_SI1145.h"
 #include "Adafruit_NeoPixel.h"
+#include "SoftwareSerial.h"
 
 
 //---------------- CONSTANTS ----------------//
@@ -34,7 +35,7 @@ const char * NTP_SERVER = "pool.ntp.org";
 #define STEPPER_PIN_2 13 // GP13
 #define STEPPER_PIN_3 27 // GP11
 #define STEPPER_PIN_4 33 // GP10
-#define QUATER_TURN 510  // steps needed for a quater turn
+#define QUATER_TURN 512  // steps needed for a quater turn
 #define MS_BETWEEN_STEPS 20
 const bool STEPPER_STEPS[4][4] = {
 	{0, 0, 1, 1},
@@ -47,12 +48,21 @@ const bool STEPPER_STEPS[4][4] = {
 #define NUM_PIXELS 4
 #define PIXEL_PIN 21
 
+// 
+#define SCL 20
+#define SDA 22
+
+
 //---------------- ENUMS / STRUCTS ----------------//
 
 enum IOTCmd { DETECT, REGISTER, QUERY, IOTDATA, IOTSHUTDOWN };
 
 struct HDCdata {
   double temp, humid;
+};
+
+struct GPSdata {
+  double lat, lon, alt;
 };
 
 
@@ -79,7 +89,8 @@ void tSping(void *);
 // Tasks
 void tIOT(void *);
 void tHDC(void *);
-void tSI(void *);
+void tSI (void *);
+void tGPS(void *);
 void tStepper(void *);
 void tLED(void *);
 
@@ -92,6 +103,7 @@ QueueHandle_t qCfreq;
 QueueHandle_t qSfreq;
 QueueHandle_t qHDCdata;
 QueueHandle_t qSIdata;
+QueueHandle_t qGPSdata;
 QueueHandle_t qStepper;
 
 // Pinger tasks handles
@@ -102,13 +114,15 @@ TaskHandle_t thSping;
 TaskHandle_t thIOT;
 TaskHandle_t thHDC;
 TaskHandle_t thSI;
+TaskHandle_t thGPS;
 TaskHandle_t thStepper;
 TaskHandle_t thLED;
 
 // Other
 ClosedCube_HDC1080 hdc1080;
-Adafruit_SI1145 si1145;
-Adafruit_NeoPixel pixels(NUM_PIXELS, PIXEL_PIN, NEO_GRBW + NEO_KHZ800);
+Adafruit_SI1145    si1145;
+SoftwareSerial     swSer();//(SCL, SDA, false, 256);
+Adafruit_NeoPixel  pixels(NUM_PIXELS, PIXEL_PIN, NEO_GRBW + NEO_KHZ800);
 
 BaseType_t tru = pdTRUE;
 BaseType_t nah = pdFALSE;

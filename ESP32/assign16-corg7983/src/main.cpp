@@ -15,6 +15,7 @@ void setup()
 {
   // Initialization
   Serial.begin(115200);
+  // swSer.begin(9600);
   initPins();
   initPixels();
   connectHDC();
@@ -32,6 +33,7 @@ void setup()
   qCfreq   = xQueueCreate(1, sizeof(int)    );
   qHDCdata = xQueueCreate(8, sizeof(HDCdata));
   qSIdata  = xQueueCreate(8, sizeof(double) );
+  // qGPSdata = xQueueCreate(1, sizeof(String) );
   qStepper = xQueueCreate(32,sizeof(bool)   );
 
   // Create ISRs
@@ -40,15 +42,16 @@ void setup()
   attachInterrupt(BUTTON_3, isr3, RISING);
 
   // Create pinger tasks
-  xTaskCreatePinnedToCore(tCping, "Check Pinger",  1024, NULL, 11, &thCping, 1  );
-  xTaskCreatePinnedToCore(tSping,  "Send Pinger",  1024, NULL, 12, &thSping, 1  );
+  xTaskCreatePinnedToCore(tCping,  "Check Pinger", 1024, NULL,11, &thCping,  1);
+  xTaskCreatePinnedToCore(tSping,  "Send Pinger",  1024, NULL,12, &thSping,  1);
 
   // Create tasks
-  xTaskCreatePinnedToCore(tIOT,    "IOT Task",    65536, NULL, 10, &thIOT,     1);
-  xTaskCreatePinnedToCore(tHDC,    "HDC Task",     2048, NULL,  4, &thHDC,     1);
-  xTaskCreatePinnedToCore(tSI,     "SI Task",      2048, NULL,  3, &thSI,      1);
-  xTaskCreatePinnedToCore(tStepper,"Stepper Task", 2048, NULL,  2, &thStepper, 1);
-  xTaskCreatePinnedToCore(tLED,    "LED Task",     2048, NULL,  1, &thLED,     1);
+  xTaskCreatePinnedToCore(tIOT,    "IOT Task",    65536, NULL,10, &thIOT,    1);
+  xTaskCreatePinnedToCore(tHDC,    "HDC Task",     2048, NULL, 5, &thHDC,    1);
+  xTaskCreatePinnedToCore(tSI,     "SI Task",      2048, NULL, 4, &thSI,     1);
+  // xTaskCreatePinnedToCore(tGPS,    "GPS Task",    65536, NULL, 3, &thGPS,    1);
+  xTaskCreatePinnedToCore(tStepper,"Stepper Task", 2048, NULL, 2, &thStepper,1);
+  xTaskCreatePinnedToCore(tLED,    "LED Task",     2048, NULL, 1, &thLED,    1);
 
   // Send command to register with IOT server
   IOTCmd cmd = REGISTER;
@@ -229,7 +232,8 @@ void tIOT(void *)
   int Cfreq, Sfreq;
   JSONVar json;
   HDCdata hdcData;
-  double temp, humid, light;
+  GPSdata * gpsData = NULL;
+  double temp, humid, light, lat, lon, alt;
 
   while (1) {
     // Wait for a command
@@ -265,7 +269,7 @@ void tIOT(void *)
         Serial.println("[IOT Task]: Requesting reading from HDC1080");
         xTaskNotifyGive(thHDC);
         xQueueReceive(qHDCdata, &hdcData, portMAX_DELAY);
-        temp = hdcData.temp;
+        temp  = hdcData.temp;
         humid = hdcData.humid;
         Serial.print("[IOT Task]: HDC reading recieved (temp: ");
         Serial.print(temp);
@@ -274,12 +278,30 @@ void tIOT(void *)
         Serial.println(")");
 
         // Notify SI1145 task to take a reading and wait on it
-        /* Serial.println("[IOT Task]: Requesting reading from SI1145");
+        Serial.println("[IOT Task]: Requesting reading from SI1145");
         xTaskNotifyGive(thSI);
         xQueueReceive(qSIdata, &light, portMAX_DELAY);
         Serial.print("[IOT Task]: SI reading recieved (light: ");
         Serial.print(light);
-        Serial.println(")"); */
+        Serial.println(")");
+
+        // Notify GPS task to take a reading and wait on it
+        Serial.println("[IOT Task]: Saving latest GPS reading from queue");
+        // xQueuePeek(qGPSdata, gpsData, 0);
+        if (gpsData != NULL) {
+          lat = gpsData->lat;
+          lon = gpsData->lon;
+          alt = gpsData->alt;
+          Serial.print("[IOT Task]: GPS reading recieved (lat: ");
+          Serial.print(lat);
+          Serial.print(", lon: ");
+          Serial.print(lon);
+          Serial.print(", alt: ");
+          Serial.print(alt);
+          Serial.println(")");
+        } else {
+          Serial.println("[IOT Task]: GPS reading was not found");
+        }
 
         // Get time data
         Serial.println("[IOT Task]: Storing current time");
@@ -289,8 +311,10 @@ void tIOT(void *)
         reqData = "{\"auth_code\":\"" + authCode 
                 + "\",\"temperature\":" + temp
                 + ",\"humidity\":" + humid
-                // + ",\"light\":" + light
-                //+ ",\"latitude\":0.0,\"longitude\":0.0,\"altitude\":0.0
+                + ",\"light\":" + light
+                + (gpsData == NULL ? "" : ",\"latitude\":" + String(lat)
+                                        + ",\"longitude\":" + String(lon)
+                                        + ",\"altitude\":" + String(alt))
                 + (!curTime.length() ? "}" : ",\"time\":\"" + curTime + "\"}");
         break;
       }
@@ -321,7 +345,7 @@ void tIOT(void *)
     json = JSON.parse(response);
 
     switch(cmd) {
-      case DETECT:
+      case DETECT: {
         if (!json.hasOwnProperty("reply") || strcmp((const char *)json["reply"], "I am up and Running")) {
           Serial.println("[IOT Task]: Server could not be detected");
         } else {
@@ -329,8 +353,8 @@ void tIOT(void *)
           Serial.println(SERVER_IP);
         }
        break;
-
-      case REGISTER:
+      }
+      case REGISTER: {
         if (!json.hasOwnProperty("auth_code")) {
           Serial.println("[IOT Task]: Failed to register with server");
         } else {
@@ -347,8 +371,8 @@ void tIOT(void *)
           xTaskNotifyGive(thCping);
         }
         break;
-
-      case QUERY:
+    }
+      case QUERY: {
         Serial.print("[IOT Task]: Response: ");
         Serial.println(response);
         if (!json.hasOwnProperty("commands")) {
@@ -401,13 +425,13 @@ void tIOT(void *)
           }
         }
         break;
-
-      case IOTDATA:
+      }
+      case IOTDATA: {
         Serial.print("[IOT Task]: Response: ");
         Serial.println(response);
         break;
-
-      case IOTSHUTDOWN:
+      }
+      case IOTSHUTDOWN: {
         // Clear authCode to mark disconnection
         authCode = "";
 
@@ -415,10 +439,11 @@ void tIOT(void *)
         Cfreq = Sfreq = 0; 
         xQueueOverwrite(qCfreq, &Cfreq);
         xQueueOverwrite(qSfreq, &Sfreq);
-
-      default:
+      }
+      default: {
         Serial.print("[IOT Task]: Response: ");
         Serial.println(response);
+      }
     }
   }
 }
@@ -452,6 +477,51 @@ void tSI(void *)
   }
 }
 
+void tGPS(void *)
+{
+  bool found = false;
+  char buf[16];
+  int count = 0;
+  String buffer;
+  String latestLocationData;
+
+  while (1); /* {
+    // Check if there is data to read
+    if (swSer.available()) {
+      while (swSer.available()) {
+        swSer.readBytes(buf, 1);
+        if (buf[0] == '\n' && found == false) {
+          buffer += buf[0];
+          // Line just finished - check if we care about this next line
+          count = swSer.readBytes(buf, 7);
+          if (count == 7 && strcmp((const char *)buf, "GPGGA, ")) {
+            found = true;
+            // This line contains GPS location data - read it in
+            while (swSer.available() && buf[0] != '\n') {
+              swSer.readBytes(buf, 1);
+              buffer += buf[0];
+            }
+          } else {
+            // This line doesn't contain location data - continue as normal
+            buf[count] = '\0';
+            buffer += String(buf);
+          }
+        } else if (buf[0] == '\n' && found == true) {
+          buffer += buf[0];
+          // The locatin data line just finished - post it to the queue
+
+        } else {
+          // Add the single character (that isnt \n) to the String buffer
+          buffer += buf[0];
+        }
+      }
+    } else {
+      // Wait for a moment before checking for input again
+      vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
+  } */
+}
+
 void tStepper(void *)
 {
   bool dir;
@@ -474,6 +544,10 @@ void tStepper(void *)
       i += o;
     }
     Serial.println("[Stepper Task]: Completed rotation");
+    digitalWrite(STEPPER_PIN_1, 0);
+    digitalWrite(STEPPER_PIN_2, 0);
+    digitalWrite(STEPPER_PIN_3, 0);
+    digitalWrite(STEPPER_PIN_4, 0);
   }
 }
 
