@@ -8,18 +8,18 @@
 
 #include <Arduino.h>
 #include <HTTPClient.h>
-#include <SoftwareSerial.h>
+// #include <SoftwareSerial.h>
 #include "Air530.h"
 
 const char * NET_SSID   = "FridaysNetwork2G";
 const char * NET_PASS   = "localpass";
 const char * NTP_SERVER = "pool.ntp.org";
 
-#define GPS_RX                      7
-#define GPS_TX                      8
+#define GPS_RX                      8
+#define GPS_TX                      7
 #define GPS_BAUD_RATE               9600
 
-SoftwareSerial * swSerial = nullptr;
+// SoftwareSerial * swSerial = nullptr;
 Air530         * gps = nullptr;
 
 uint32_t         last = 0;
@@ -36,14 +36,15 @@ struct myTime getTime();
 void setup(void)
 {
   Serial.begin(115200);
+  Serial2.begin(GPS_BAUD_RATE, 134217756U, GPS_RX, GPS_TX);
   Serial.println("AIR530 GPS full-function configuration example");
   connectWiFi();
   configTime(0, 0, NTP_SERVER);
 
   //Initialize the uart
-  swSerial = new SoftwareSerial(GPS_RX, GPS_TX);
-  swSerial->begin(GPS_BAUD_RATE);
-  gps = new Air530(swSerial);
+  // swSerial = new SoftwareSerial(GPS_RX, GPS_TX);
+  // swSerial->begin(GPS_BAUD_RATE);
+  gps = new Air530(&Serial2);
   Serial.println("Inited uart and made Air530 object");
 
   /*Set the GPS module to the normal mode,
