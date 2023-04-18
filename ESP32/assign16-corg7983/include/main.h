@@ -24,10 +24,24 @@ const char * NTP_SERVER = "pool.ntp.org";
 #define MIN_CHECK_SEND_FREQ 10
 
 // Buttons
-#define BUTTONS1 19 // GP19
-#define BUTTONS2 15 // GP09
-#define BUTTONS3 32 // GP08
+#define BUTTON_1 19 // GP19
+#define BUTTON_2 15 // GP09
+#define BUTTON_3 32 // GP08
 #define BTN_REG_TICK_GAP 200 / portTICK_PERIOD_MS
+
+// Stepper moter pins
+#define STEPPER_PIN_1 12 // GP12
+#define STEPPER_PIN_2 13 // GP13
+#define STEPPER_PIN_3 27 // GP11
+#define STEPPER_PIN_4 33 // GP10
+#define QUATER_TURN 510  // steps needed for a quater turn
+#define MS_BETWEEN_STEPS 20
+const bool STEPPER_STEPS[4][4] = {
+	{0, 0, 1, 1},
+	{0, 1, 1, 0},
+	{1, 1, 0, 0},
+	{1, 0, 0, 1}
+};
 
 // Pixels
 #define NUM_PIXELS 4

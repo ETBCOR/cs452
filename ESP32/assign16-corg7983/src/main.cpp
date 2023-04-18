@@ -22,9 +22,9 @@ void setup()
   connectWiFi();
   configTime(0, 0, NTP_SERVER);
   String curTime = getTime();
-  Serial.print("Initialization complete. Current time: ");
-  Serial.println(curTime);
-  Serial.println();
+  Serial.print("Initialization complete (time: ");
+  Serial.print(curTime);
+  Serial.println(")\n");
 
   // Create queues
   qIOTcmd  = xQueueCreate(32,sizeof(IOTCmd) );
@@ -35,9 +35,9 @@ void setup()
   qStepper = xQueueCreate(32,sizeof(bool)   );
 
   // Create ISRs
-  attachInterrupt(BUTTONS1, isr1, RISING);
-  attachInterrupt(BUTTONS2, isr2, RISING);
-  attachInterrupt(BUTTONS3, isr3, RISING);
+  attachInterrupt(BUTTON_1, isr1, RISING);
+  attachInterrupt(BUTTON_2, isr2, RISING);
+  attachInterrupt(BUTTON_3, isr3, RISING);
 
   // Create pinger tasks
   xTaskCreatePinnedToCore(tCping, "Check Pinger",  1024, NULL, 11, &thCping, 1  );
@@ -61,9 +61,14 @@ void loop() {}
 
 void initPins()
 {
-  pinMode(BUTTONS1, INPUT);
-  pinMode(BUTTONS2, INPUT);
-  pinMode(BUTTONS3, INPUT);
+  pinMode(BUTTON_1, INPUT);
+  pinMode(BUTTON_2, INPUT);
+  pinMode(BUTTON_3, INPUT);
+
+  pinMode(STEPPER_PIN_1, OUTPUT);
+  pinMode(STEPPER_PIN_2, OUTPUT);
+  pinMode(STEPPER_PIN_3, OUTPUT);
+  pinMode(STEPPER_PIN_4, OUTPUT);
 }
 
 void initPixels()
@@ -84,10 +89,11 @@ void connectHDC()
     Serial.print(". ");
     hdc1080.begin(0x40);
   }
-	Serial.print("\nFound. Manufacturer ID=0x");
+	Serial.print("\nFound (Manufacturer ID=0x");
 	Serial.print(hdc1080.readManufacturerId(), HEX); // 0x5449
 	Serial.print(", Device ID=0x");
-	Serial.println(hdc1080.readDeviceId(), HEX); // 0x1050
+	Serial.print(hdc1080.readDeviceId(), HEX); // 0x1050
+  Serial.println(")");
 }
 
 void connectSI()
@@ -98,7 +104,7 @@ void connectSI()
     vTaskDelay(500 / portTICK_PERIOD_MS);
     Serial.print(". ");
   }
-	Serial.println("\nFound.");
+	Serial.println("\nFound");
 }
 
 void connectWiFi()
@@ -131,8 +137,8 @@ String getTime()
 {
   struct tm ti;
   if (getLocalTime(&ti)) {
-    char buf[20];
-    strftime(buf, 20, "%F %T", &ti);
+    char buf[30];
+    strftime(buf, 30, "%F %T", &ti);
     return String(buf);
   } else return "";
 }
@@ -317,7 +323,7 @@ void tIOT(void *)
     switch(cmd) {
       case DETECT:
         if (!json.hasOwnProperty("reply") || strcmp((const char *)json["reply"], "I am up and Running")) {
-          Serial.println("[IOT Task]: Server could not be detected.");
+          Serial.println("[IOT Task]: Server could not be detected");
         } else {
           Serial.print("[IOT Task]: Server detected at ");
           Serial.println(SERVER_IP);
@@ -326,7 +332,7 @@ void tIOT(void *)
 
       case REGISTER:
         if (!json.hasOwnProperty("auth_code")) {
-          Serial.println("[IOT Task]: Failed to register with server.");
+          Serial.println("[IOT Task]: Failed to register with server");
         } else {
           // Successfully registered with server
           authCode = (const char *)json["auth_code"];
@@ -346,7 +352,7 @@ void tIOT(void *)
         Serial.print("[IOT Task]: Response: ");
         Serial.println(response);
         if (!json.hasOwnProperty("commands")) {
-          Serial.println("[IOT Task]: Error querrying IOT server for commands.");
+          Serial.println("[IOT Task]: Error querrying IOT server for commands");
         } else {
           json = json["commands"];
           for (int i = 0; i < json.length(); i++) {
@@ -367,23 +373,23 @@ void tIOT(void *)
                 xQueueSend(qIOTcmd, &cmd, 0);
               } else if (!strcmp((const char *)commandName, "SetCheckFreq")) {
                 if (!command.hasOwnProperty("seconds")) {
-                  Serial.println("[IOT Task]: The SetCheckFreq command requires a seconds argument.");
+                  Serial.println("[IOT Task]: The SetCheckFreq command requires a seconds argument");
                 } else {
                   Cfreq = command["seconds"];
                   Serial.print("[IOT Task]: Updating check pinger delay to ");
                   Serial.print(Cfreq);
-                  Serial.println(" seconds.");
+                  Serial.println(" seconds");
                   xQueueOverwrite(qCfreq, &Cfreq);
                   xTaskAbortDelay(thCping);
                 }
               } else if (!strcmp((const char *)commandName, "SetSendFreq")) {
                 if (!command.hasOwnProperty("seconds")) {
-                  Serial.println("[IOT Task]: The SetSendFreq command requires a seconds argument.");
+                  Serial.println("[IOT Task]: The SetSendFreq command requires a seconds argument");
                 } else {
                   Sfreq = command["seconds"];
                   Serial.print("[IOT Task]: Updating send pinger delay to ");
                   Serial.print(Sfreq);
-                  Serial.println(" seconds.");
+                  Serial.println(" seconds");
                   xQueueOverwrite(qSfreq, &Sfreq);
                   xTaskAbortDelay(thSping);
                 }
@@ -449,11 +455,25 @@ void tSI(void *)
 void tStepper(void *)
 {
   bool dir;
+  int i, o, m;
 
   while (1) {
     xQueueReceive(qStepper, &dir, portMAX_DELAY);
-    Serial.print("[Stepper Task]: Rotating ");
-    Serial.println(dir ? "CCW" : "CW");
+    Serial.print("[Stepper Task]: Rotating 1/4 turn ");
+    Serial.println(dir ? "counter-clockwise" : "clockwise");
+
+    i = dir ? 0 : QUATER_TURN;
+    o = dir ? 1 : -1;
+    while (0 <= i && i <= QUATER_TURN) {
+      m = i % 4;
+      digitalWrite(STEPPER_PIN_1, STEPPER_STEPS[m][0]);
+      digitalWrite(STEPPER_PIN_2, STEPPER_STEPS[m][1]);
+      digitalWrite(STEPPER_PIN_3, STEPPER_STEPS[m][2]);
+      digitalWrite(STEPPER_PIN_4, STEPPER_STEPS[m][3]);
+      vTaskDelay(MS_BETWEEN_STEPS / portTICK_PERIOD_MS);
+      i += o;
+    }
+    Serial.println("[Stepper Task]: Completed rotation");
   }
 }
 
