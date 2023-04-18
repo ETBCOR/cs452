@@ -115,7 +115,7 @@ void setup(void)
   bool BEIDOU = true;
   bool GALIEO = true;
   gps->setSearchMode(GPS, GLONASS, BEIDOU, GALIEO);
-  Serial.println("Set search mode to GPS only");
+  Serial.println("Set search mode");
 
   /*Calling the following function will enable or disable
     Quasi-Zenith Satellite System*/
