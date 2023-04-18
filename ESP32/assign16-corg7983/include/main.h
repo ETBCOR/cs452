@@ -5,11 +5,12 @@
 #include <Wire.h>
 #include "ClosedCube_HDC1080.h"
 #include "Adafruit_SI1145.h"
+#include "Adafruit_NeoPixel.h"
 
 
 //---------------- CONSTANTS ----------------//
 
-const char*  NET_SSID   = "FRIDAYSPC";
+const char*  NET_SSID   = "FridaysNetwork2G";
 const char*  NET_PASS   = "localpass";
 const String SERVER_IP  = "http://52.23.160.25:5000/IOTAPI/";
 const String SECRET_KEY = "2436e8c114aa64ee";
@@ -26,6 +27,10 @@ const String IOTID      = "1003";
 #define BUTTONS3 32 // GP08
 #define BTN_REG_TICK_GAP 200 / portTICK_PERIOD_MS
 
+// Pixels
+#define NUM_PIXELS 4
+#define PIXEL_PIN 21
+
 //---------------- ENUMS / STRUCTS ----------------//
 
 enum IOTCmd { DETECT, REGISTER, QUERY, IOTDATA, IOTSHUTDOWN };
@@ -39,6 +44,7 @@ struct HDCdata {
 
 // Functions
 void initPins();
+void initPixels();
 void connectHDC();
 void connectSI();
 void connectWiFi();
@@ -86,6 +92,7 @@ TaskHandle_t thLED;
 // Other
 ClosedCube_HDC1080 hdc1080;
 Adafruit_SI1145 si1145;
+Adafruit_NeoPixel pixels(NUM_PIXELS, PIXEL_PIN, NEO_GRBW + NEO_KHZ800);
 
 BaseType_t tru = pdTRUE;
 BaseType_t nah = pdFALSE;

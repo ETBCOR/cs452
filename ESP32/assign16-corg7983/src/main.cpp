@@ -16,6 +16,7 @@ void setup()
   // Initialization
   Serial.begin(115200);
   initPins();
+  initPixels();
   connectHDC();
   connectSI();
   connectWiFi();
@@ -58,6 +59,14 @@ void initPins()
   pinMode(BUTTONS1, INPUT);
   pinMode(BUTTONS2, INPUT);
   pinMode(BUTTONS3, INPUT);
+}
+
+void initPixels()
+{
+  pixels.begin();
+  pixels.setBrightness(50);
+  pixels.clear();
+  pixels.show();
 }
 
 void connectHDC()
@@ -154,13 +163,13 @@ void tCping(void *)
   ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
   while (1) {
     xQueuePeek(qCfreq, &delaySec, portMAX_DELAY);
-    while (delaySec < 10) {
+    while (delaySec < MIN_CHECK_SEND_FREQ) {
       vTaskDelay(1000 / portTICK_PERIOD_MS);
       xQueuePeek(qCfreq, &delaySec, portMAX_DELAY);
     }
     vTaskDelay(delaySec * 1000 / portTICK_PERIOD_MS);
     xQueuePeek(qCfreq, &delaySec, portMAX_DELAY);
-    if (delaySec < 10)
+    if (delaySec < MIN_CHECK_SEND_FREQ)
       continue;
     Serial.println("[Check Pinger]: Sending ping to check IOT server for new commands.");
     xQueueSend(qIOTcmd, &cmd, portMAX_DELAY);
@@ -175,13 +184,13 @@ void tSping(void *)
   ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
   while (1) {
     xQueuePeek(qSfreq, &delaySec, portMAX_DELAY);
-    while (delaySec < 10) {
+    while (delaySec < MIN_CHECK_SEND_FREQ) {
       vTaskDelay(1000 / portTICK_PERIOD_MS);
       xQueuePeek(qSfreq, &delaySec, portMAX_DELAY);
     }
     vTaskDelay(delaySec * 1000 / portTICK_PERIOD_MS);
     xQueuePeek(qSfreq, &delaySec, portMAX_DELAY);
-    if (delaySec < 10)
+    if (delaySec < MIN_CHECK_SEND_FREQ)
       continue;
     Serial.println("[Send Pinger]: Sending ping to send data to IOT server.");
     xQueueSend(qIOTcmd, &cmd, portMAX_DELAY);
@@ -255,7 +264,7 @@ void tIOT(void *)
                 //+ ",\"latitude\":0.0,\"longitude\":0.0,\"altitude\":0.0,\"time\":\"2023-04-01 00:00:01\"}";
         break;
       }
-      case IOTSHUTDOWN: reqData = "{\"auth_code\":\"" + authCode + "\"}";                             break;
+      case IOTSHUTDOWN: reqData = "{\"auth_code\":\"" + authCode + "\"}";                               break;
       default:          reqData = "";
     }
 
@@ -429,5 +438,11 @@ void tLED(void *)
   while (1) {
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
     Serial.println("[LED Task]: Flash!");
+    for (int i = 0; i < NUM_PIXELS; i++)
+      pixels.setPixelColor(i, pixels.Color(255, 255, 255));
+    pixels.show();
+    vTaskDelay(250 / portTICK_PERIOD_MS);
+    pixels.clear();
+    pixels.show();
   }
 }
