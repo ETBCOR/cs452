@@ -8,20 +8,17 @@
 
 #include <Arduino.h>
 #include <HTTPClient.h>
-// #include <SoftwareSerial.h>
 #include "Air530.h"
 
 const char * NET_SSID   = "FridaysNetwork2G";
 const char * NET_PASS   = "localpass";
 const char * NTP_SERVER = "pool.ntp.org";
 
-#define GPS_RX                      8
-#define GPS_TX                      7
-#define GPS_BAUD_RATE               9600
+#define GPS_RX                      7
+#define GPS_TX                      8
 
-// SoftwareSerial * swSerial = nullptr;
+HardwareSerial * hwSerial = nullptr;
 Air530         * gps = nullptr;
-
 uint32_t         last = 0;
 
 struct myTime {
@@ -31,26 +28,62 @@ struct myTime {
 
 void connectWiFi();
 struct myTime getTime();
+void clearBufferArray();
 
+void setup_n(void)
+{
+  Serial.begin(9600);
+  Serial1.begin(9600);
+  connectWiFi();
+  configTime(-6 * 60 * 60, 0, NTP_SERVER);
+  Serial.println("AIR530 Simple Test");
+
+  gps = new Air530(&Serial1);
+  gps->setNormalMode();
+  // gps->disableNMEAOutput();
+  // Serial.print("Soft version: ");
+  // Serial.println(gps->getSoftVersion());
+
+  // gps->restart(AIR530_HOT_START);
+  // delay(1000);
+}
+
+unsigned char buffer[64];
+int count=0;
+void loop_n(void)
+{
+  if (Serial1.available())
+  {
+    while(Serial1.available())
+    {
+      buffer[count++]=Serial1.read();
+      if(count == 64)break;
+    }
+    Serial.write(buffer,count);
+    clearBufferArray();
+    count = 0;
+  }
+  if (Serial.available())
+  Serial1.write(Serial.read());
+}
 
 void setup(void)
 {
-  Serial.begin(115200);
-  Serial2.begin(GPS_BAUD_RATE, 134217756U, GPS_RX, GPS_TX);
-  Serial.println("AIR530 GPS full-function configuration example");
+  Serial.begin(9600);
+  // Serial1.begin(9600);
   connectWiFi();
-  configTime(0, 0, NTP_SERVER);
+  configTime(-6 * 60 * 60, 0, NTP_SERVER);
+  Serial.println("AIR530 GPS full-function configuration example");
 
   //Initialize the uart
-  // swSerial = new SoftwareSerial(GPS_RX, GPS_TX);
-  // swSerial->begin(GPS_BAUD_RATE);
-  gps = new Air530(&Serial2);
+  hwSerial = new HardwareSerial(1);
+  hwSerial->begin(9600, SERIAL_8N1, GPS_RX, GPS_TX);
+  gps = new Air530(hwSerial);
   Serial.println("Inited uart and made Air530 object");
 
   /*Set the GPS module to the normal mode,
     it may not be able to be set successfully in other modes, please pay attention */
   gps->setNormalMode();
-  delay(500);
   Serial.println("Set GPS mode to normal");
 
   /*When you need to configure the GPS module,
@@ -60,29 +93,30 @@ void setup(void)
 
 
   // Set the current GPS module RTC and time
-  struct myTime t = getTime();
-  gps->setDateTime(t.year, t.month, t.day, t.hour, t.minute, t.seconds);
-  delay(500);
-  Serial.printf("Time info recieved  year:%u, month:%u, day:%u, hour:%u,  min:%u, sec:%u\n", t.year, t.month, t.day, t.hour, t.minute, t.seconds);
+  struct myTime t;// = getTime();
+  // Serial.printf("Time info recieved  year:%u, month:%u, day:%u, hour:%u,  min:%u, sec:%u\n", t.year, t.month, t.day, t.hour, t.minute, t.seconds);
+  // gps->setDateTime(t.year, t.month, t.day, t.hour, t.minute, t.seconds);
+  // delay(500);
 
   // Get the current GPS module RTC and time
-  if (gps->getDateTime(t.year, t.month, t.day, t.hour, t.minute, t.seconds)) {
-    Serial.printf("GPS TIME  year:%u, month:%u, day:%u, hour:%u,  min:%u, sec:%u\n", t.year, t.month, t.day, t.hour, t.minute, t.seconds);
-  } else {
-    Serial.println("Failed to fetch time data from GPS");
-  }
+  // if (gps->getDateTime(t.year, t.month, t.day, t.hour, t.minute, t.seconds)) {
+    // Serial.printf("GPS TIME  year:%u, month:%u, day:%u, hour:%u,  min:%u, sec:%u\n", t.year, t.month, t.day, t.hour, t.minute, t.seconds);
+  // } else {
+    // Serial.println("Failed to fetch time data from GPS");
+  // }
 
   // Get the current GPS module software version number
-  Serial.print("Soft version: ");
-  Serial.println(gps->getSoftVersion());
+  // Serial.print("Soft version: ");
+  // Serial.println(gps->getSoftVersion());
 
   // Configure the output frequency of NMEA sentences, in milliseconds
-  gps->setNMEAInterval(1000);
+  // gps->setNMEAInterval(1000);
+  // Serial.println("Set NMEA interval");
 
   // Get the output frequency of NMEA sentences, in milliseconds
-  Serial.print("NMEA message interval: ");
-  Serial.print(gps->getNMEAInterval());
-  Serial.println("ms");
+  // Serial.print("NMEA message interval: ");
+  // Serial.print(gps->getNMEAInterval());
+  // Serial.println("ms");
 
   /*You can set gps to tracking mode,
     let it run for 5 seconds and sleep for 10 seconds*/
@@ -125,7 +159,7 @@ void setup(void)
 
   /*Calling the following function will enable or disable
     Satellite-Based Augmentation System*/
-  gps->enableSBAS();
+  // gps->enableSBAS();
   // gps->disableSBAS();
 
   /*1PPS mode has the following options:
@@ -148,7 +182,7 @@ void setup(void)
   bool gsv = true;
   bool grs = true;
   bool gst = true;
-  gps->setNMEAStatement(gll, rmc, vtg, gga, gsa, gsv, grs, gst);
+  // gps->setNMEAStatement(gll, rmc, vtg, gga, gsa, gsv, grs, gst);
 
   /*You can speed up GPS positioning by presetting approximate latitude,
     longitude and time*/
@@ -164,13 +198,13 @@ void setup(void)
   // gps->setProbablyLoaction( lat,  lng, altitude, year, month, day, hour, minute, seconds);
 
   // Get whether the Satellite-Based Augmentation System is enabled
-  Serial.print("SBAS enabled: ");
-  Serial.println(gps->getSBASEnable());
+  // Serial.print("SBAS enabled: ");
+  // Serial.println(gps->getSBASEnable());
 
   /*After the configuration is complete,
     call enableNMEAOutput to enable the output of NMEA sentences*/
-  gps->enableNMEAOutput();
-  Serial.println("Re-enabled NMEA output");
+  // gps->enableNMEAOutput();
+  // Serial.println("Re-enabled NMEA output");
 
   Serial.println("Configure Done!\n\n");
 
@@ -192,12 +226,14 @@ void setup(void)
     AIR530_WARM_START
     AIR530_COLD_START
     Call restart to start the gps module*/
-  gps->restart(AIR530_COLD_START);
+  gps->restart(AIR530_HOT_START);
 }
 
 void loop(void)
 {
-  gps->process();
+  //Serial.println(
+    gps->process();
+  //? "process() ok" : "process() abnormal");
 
   if (gps->location.isUpdated()) {
     Serial.print(F("LOCATION   Fix Age="));
@@ -325,4 +361,12 @@ struct myTime getTime()
     t.seconds   = std::stoi(buf);
   }
   return t;
+}
+
+void clearBufferArray()
+{
+  for (int i=0; i<count;i++)
+  {
+    buffer[i]='\0';
+  }
 }
