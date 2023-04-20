@@ -15,7 +15,6 @@ void setup()
 {
   // Initialization
   Serial.begin(115200);
-  // swSer.begin(9600);
   initPins();
   initPixels();
   connectHDC();
@@ -28,30 +27,34 @@ void setup()
   Serial.println(")\n");
 
   // Create queues
-  qIOTcmd  = xQueueCreate(32,sizeof(IOTCmd) );
-  qSfreq   = xQueueCreate(1, sizeof(int)    );
-  qCfreq   = xQueueCreate(1, sizeof(int)    );
-  qHDCdata = xQueueCreate(8, sizeof(HDCdata));
-  qSIdata  = xQueueCreate(8, sizeof(double) );
-  // qGPSdata = xQueueCreate(1, sizeof(String) );
-  qStepper = xQueueCreate(32,sizeof(bool)   );
-
+  qIOTcmd  = xQueueCreate(32,sizeof(IOTCmd)  );
+  qServer  = xQueueCreate(1, sizeof(fullData));
+  qSfreq   = xQueueCreate(1, sizeof(int)     );
+  qCfreq   = xQueueCreate(1, sizeof(int)     );
+  qHDCdata = xQueueCreate(8, sizeof(HDCdata) );
+  qSIdata  = xQueueCreate(8, sizeof(double)  );
+  // qGPSdata = xQueueCreate(1, sizeof(String)  );
+  qStepper = xQueueCreate(32,sizeof(bool)    );
+  fullData fd = {0, 0, 0};
+  xQueueSend(qServer, &fd, 0);
+  
   // Create ISRs
   attachInterrupt(BUTTON_1, isr1, RISING);
   attachInterrupt(BUTTON_2, isr2, RISING);
   attachInterrupt(BUTTON_3, isr3, RISING);
 
   // Create pinger tasks
-  xTaskCreatePinnedToCore(tCping,  "Check Pinger", 1024, NULL,11, &thCping,  1);
-  xTaskCreatePinnedToCore(tSping,  "Send Pinger",  1024, NULL,12, &thSping,  1);
+  xTaskCreatePinnedToCore(tCping,  "Check Pinger",  1024, NULL,11, &thCping,  1);
+  xTaskCreatePinnedToCore(tSping,  "Send Pinger",   1024, NULL,12, &thSping,  1);
 
   // Create tasks
-  xTaskCreatePinnedToCore(tIOT,    "IOT Task",    65536, NULL,10, &thIOT,    1);
-  xTaskCreatePinnedToCore(tHDC,    "HDC Task",     2048, NULL, 5, &thHDC,    1);
-  xTaskCreatePinnedToCore(tSI,     "SI Task",      2048, NULL, 4, &thSI,     1);
-  // xTaskCreatePinnedToCore(tGPS,    "GPS Task",    65536, NULL, 3, &thGPS,    1);
-  xTaskCreatePinnedToCore(tStepper,"Stepper Task", 2048, NULL, 2, &thStepper,1);
-  xTaskCreatePinnedToCore(tLED,    "LED Task",     2048, NULL, 1, &thLED,    1);
+  xTaskCreatePinnedToCore(tIOT,    "IOT Task",     65536, NULL,10, &thIOT,    1);
+  xTaskCreatePinnedToCore(tServer, "Server Task",  65536, NULL, 1, &thServer, 1);
+  xTaskCreatePinnedToCore(tHDC,    "HDC Task",      2048, NULL, 6, &thHDC,    1);
+  xTaskCreatePinnedToCore(tSI,     "SI Task",       2048, NULL, 5, &thSI,     1);
+  // xTaskCreatePinnedToCore(tGPS,    "GPS Task",     65536, NULL, 4, &thGPS,    1);
+  xTaskCreatePinnedToCore(tStepper,"Stepper Task" , 2048, NULL, 3, &thStepper,1);
+  xTaskCreatePinnedToCore(tLED,    "LED Task",      2048, NULL, 2, &thLED,    1);
 
   // Send command to register with IOT server
   IOTCmd cmd = REGISTER;
@@ -232,7 +235,7 @@ void tIOT(void *)
   int Cfreq, Sfreq;
   JSONVar json;
   HDCdata hdcData;
-  GPSdata * gpsData = NULL;
+  GPSdata * gpsData = nullptr;
   double temp, humid, light, lat, lon, alt;
 
   while (1) {
@@ -307,14 +310,18 @@ void tIOT(void *)
         Serial.println("[IOT Task]: Storing current time");
         curTime = getTime();
 
+        // Send recorded data to web server task
+        fullData fd = { temp, humid, light };
+        xQueueOverwrite(qServer, &fd);
+
         // Set reqData
         reqData = "{\"auth_code\":\"" + authCode 
                 + "\",\"temperature\":" + temp
                 + ",\"humidity\":" + humid
                 + ",\"light\":" + light
-                + (gpsData == NULL ? "" : ",\"latitude\":" + String(lat)
-                                        + ",\"longitude\":" + String(lon)
-                                        + ",\"altitude\":" + String(alt))
+                + (gpsData == nullptr ? "" : ",\"latitude\":" + String(lat)
+                                           + ",\"longitude\":" + String(lon)
+                                           + ",\"altitude\":" + String(alt))
                 + (!curTime.length() ? "}" : ",\"time\":\"" + curTime + "\"}");
         break;
       }
@@ -445,6 +452,105 @@ void tIOT(void *)
         Serial.println(response);
       }
     }
+  }
+}
+
+void tServer(void* parm)
+{
+  WiFiServer server(80);    // Initialize webserver on port 80
+  String header;            // Stores HTTP request
+  fullData data;
+  unsigned long currTime = millis();
+  unsigned long prevTime = 0;
+
+  // Start the web server
+  server.begin();
+  Serial.println("[Server Task]: Web server started");
+  
+  while (1) {
+    // Listen for incoming clients
+    WiFiClient client = server.available();
+
+    if (client) {
+      // A new client is trying to connect
+      
+
+      currTime = prevTime = millis();
+      Serial.println("[Server Task]: New client");
+      String currLine = ""; // holds incoming data from the client
+      std::string reqUrl = "";   // holds the request url from the client
+
+      while (client.connected() && currTime - prevTime <= TIMEOUT) {
+        // The connection is still running
+
+        currTime = millis();
+        if (client.available()) {
+          char c = client.read();
+          // Serial.write(c);
+          header += c;
+
+          if (c == '\n') {
+            // The end of a line has been reached
+
+            if (currLine.startsWith("Referer:")) {
+              // This line contains the req url; save it
+              reqUrl = currLine.c_str();
+              currLine = "";
+
+            } else if (currLine.length() == 0) {
+              // The request has ended, so execute command from url and send a response
+              if (reqUrl.find("RotQCW") != std::string::npos) {
+                xQueueSend(qStepper, &nah, 0);
+              } else if (reqUrl.find("RotQCCW") != std::string::npos) {
+                xQueueSend(qStepper, &tru, 0);
+              } else if (reqUrl.find("Flash") != std::string::npos) {
+                xTaskNotifyGive(thLED);
+              } else if (reqUrl.find("Detect") != std::string::npos) {
+                IOTCmd cmd = DETECT;
+                xQueueSend(qIOTcmd, &cmd, 0);
+              } else if (reqUrl.find("Register") != std::string::npos) {
+                IOTCmd cmd = REGISTER;
+                xQueueSend(qIOTcmd, &cmd, 0);
+              } else if (reqUrl.find("QueryNow") != std::string::npos) {
+                IOTCmd cmd = QUERY;
+                xQueueSend(qIOTcmd, &cmd, 0);
+              } else if (reqUrl.find("SendNow") != std::string::npos) {
+                IOTCmd cmd = IOTDATA;
+                xQueueSend(qIOTcmd, &cmd, 0);
+              } else if (reqUrl.find("Shutdown") != std::string::npos) {
+                IOTCmd cmd = IOTSHUTDOWN;
+                xQueueSend(qIOTcmd, &cmd, 0);
+              }
+
+              xQueuePeek(qServer, &data, 0);
+              client.println("HTTP/1.1 200 OK\nContent-type:text/html\nConnection: close\n");
+              char index_text[2048];
+              if (data.temp == 0.0 && data.humid == 0.0 && data.light == 0.0) {
+                snprintf(index_text, sizeof(index_text), index_html_no_data);
+              } else {
+                snprintf(
+                  index_text, sizeof(index_text), index_html,
+                  data.temp, data.humid, data.light
+                );
+              }
+              client.println(index_text);
+              break; // break the while-client-connected loop
+            } else {
+              // The request hasn't ended, but the line has - so clear the line buffer
+              currLine = "";
+            }
+          } else if (c != '\r') {
+            // Any character other than the carridge return gets added to the line buffer
+            currLine += c;
+          }
+        }
+      }
+      // Clear the header var
+      header = "";
+
+      // Close the connection
+      client.stop();
+    } // if client (is trying to connect)
   }
 }
 

@@ -42,6 +42,7 @@ const char index_html[] PROGMEM = R"rawliteral(
 <html>
   <head>
     <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
+  	<meta http-equiv="refresh" content="5" />
     <link rel=\"icon\" href=\"data:,\">
     <title>ESP32 Web Server Dipswitch Display</title>
   </head>
