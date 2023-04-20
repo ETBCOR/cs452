@@ -1,3 +1,12 @@
+/* * * * * * * * * * * * * * * * * * * * * * * * * * *\
+ * Class:       CS452 (Real-Time Operating Systems)  *
+ * Instructor:  John Shovic                          *
+ * Student:     Ethan Corgatelli (corg7983)          *
+ * Project:     Assignment 16 - FreeRTOS IOT Device  *
+ * File:        main.h                               *
+ *                                                   *
+\* * * * * * * * * * * * * * * * * * * * * * * * * * */
+
 //---------------- INCLUDES ----------------//
 
 #include <HTTPClient.h>
